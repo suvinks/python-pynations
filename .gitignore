@@ -74,3 +74,4 @@ docs/_build
 /src/pynations/data/geonamesdata/*.zip
 /src/pynations/data/geonamesdata/*.txt
 /src/pynations/data/*.sqlite*
+/src/pynations/data/*.txt
