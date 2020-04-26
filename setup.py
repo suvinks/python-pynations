@@ -25,7 +25,7 @@ def read(*names, **kwargs):
 
 setup(
     name='pynations',
-    version='0.0.1',
+    version='0.0.2',
     license='MIT',
     description='A python library to get information on countries',
     long_description='%s\n%s' % (
