@@ -14,7 +14,11 @@ import pkg_resources
 
 SOURCE = Path(pkg_resources.resource_filename('pynations','data/geonamesdata'))
 DBFILE = Path(pkg_resources.resource_filename('pynations','data/pynations.sqlite'))
-COLS = os.get_terminal_size()[0]
+
+try:
+    COLS = os.get_terminal_size()[0]
+except:
+    COLS = 80
 
 def findFiles(directory='.',exts=None,recursive=True,returnString=True):
     '''

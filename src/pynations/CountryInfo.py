@@ -14,7 +14,10 @@ COUNTRYINFOFILE = Path(pkg_resources.resource_filename('pynations',
 COUNTRYLOOKUPFILE = Path(pkg_resources.resource_filename('pynations',
                                                     'data/countrylookup.json'))
 
-COLS = os.get_terminal_size()[0]
+try:
+    COLS = os.get_terminal_size()[0]
+except:
+    COLS = 80
 
 CONTINENTS = {"AF":"Africa","AS":"Asia","EU":"Europe",
                 "NA":"North America","OC":"Oceania","SA":"South America",
