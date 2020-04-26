@@ -1,4 +1,4 @@
-=====
+====
 Usage
 =====
 
@@ -9,7 +9,8 @@ To use pynations in a project::
 	c = pynations.CountryInfo.CountryInfo('us')
 	c.states()
 
-OR
+OR ::
+
 
 	from pynations.CountryInfo import CountryInfo
 	c = CountryInfo('us')
@@ -26,5 +27,5 @@ OR
 
 Do note that any valid country name can be used for Instantiation of this class
 
-For getting information on US you could instantiate with
-	CountryInfo('US'), CountryInfo('usa'), CountryInfo('America'), CountryInfo('amelika'), CountryInfo('feriene steaten') etc.
+For getting information on US you could instantiate with ::
+    CountryInfo('US'), CountryInfo('usa'), CountryInfo('America'), CountryInfo('amelika'), CountryInfo('feriene steaten') etc.
