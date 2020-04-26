@@ -59,7 +59,10 @@ Overview
 
 .. end-badges
 
-A python library to get information on countries
+A python library to get information on countries.
+The package has functions that enable you to download the datasets from geonames.org and also create sqlite db for the data.
+
+The CountryInfo class allows you to get information of any given country. You can use any common name used for getting data about the country.
 
 * Free software: MIT license
 
@@ -105,3 +108,8 @@ Note, to combine the coverage data from all the tox environments run:
       - ::
 
             PYTEST_ADDOPTS=--cov-append tox
+
+References
+==========
+
+Data used in this project is downloaded from `Geonames <http://www.geonames.org/>`_ licensed under `Creative Commons 4.0 <https://creativecommons.org/licenses/by/4.0/>`_
