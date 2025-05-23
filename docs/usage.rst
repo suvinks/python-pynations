@@ -21,6 +21,8 @@ OR ::
 	c.languages()           # Returns languages spoken
 	c.neighbors()           # Returns neighboring country names
 	c.capital()             # Returns the Capital
+	c.flag()                # Returns the country's flag emoji (if available)
+	c.major_cities()        # Returns a list of major cities
 	c.timezones()           # Returns the list of timezones
 	c.population()          # Returns the population
 	c.continent()           # Returns the continent

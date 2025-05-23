@@ -44,7 +44,9 @@ Country = {   "Geonameid": 0,
               "Languages": [],
               "Neighbours": [],
               "EquivalentFipsCode": "",
-              "Timezones": []
+              "Timezones": [],
+              "MajorCities": [],
+              "Flag": ""
         }
 
 def build_CountryInfo():
@@ -57,6 +59,19 @@ def build_CountryInfo():
     #Check if CountryInfo and CountryLookup files exist
     if COUNTRYINFOFILE.exists() and COUNTRYLOOKUPFILE.exists():
         return True # No need to create the files
+
+    ISO2_TO_FLAG = {
+        "US": "🇺🇸",
+        "CA": "🇨🇦",
+        "GB": "🇬🇧",
+        "FR": "🇫🇷",
+        "DE": "🇩🇪",
+        "JP": "🇯🇵",
+        "IN": "🇮🇳",
+        "BR": "🇧🇷",
+        "AU": "🇦🇺",
+        "CN": "🇨🇳"
+    }
 
     if not DBFILE.exists():
         print('''Please import geodownloader and run download()
@@ -79,6 +94,8 @@ def build_CountryInfo():
 
     for row in tqdm(c_result):
         country = Country.copy()
+        country['MajorCities'] = []
+        country['Flag'] = ""
 
         (country["ISO2"],country["ISO3"],
         country["ISO_Numeric"],country["Fips"],
@@ -90,9 +107,29 @@ def build_CountryInfo():
         country["ZipCodeRegex"],country["Languages"],country["Geonameid"],
         country["Neighbours"],country["EquivalentFipsCode"]) = row
 
+        # Populate Flag
+        if country["ISO2"] in ISO2_TO_FLAG:
+            country["Flag"] = ISO2_TO_FLAG[country["ISO2"]]
+
+        # Fetch Major Cities
+        try:
+            c2.execute("""
+                SELECT name 
+                FROM geoname 
+                WHERE feature_class = 'P' 
+                AND country_code = ? 
+                ORDER BY population DESC 
+                LIMIT 5
+            """, (country["ISO2"],))
+            country["MajorCities"] = [city_row[0] for city_row in c2.fetchall()]
+        except sqlite3.Error as e:
+            print(f"Error fetching major cities for {country['Country']} ({country['ISO2']}): {e}")
+            country["MajorCities"] = []
+
+
         neighbours = country['Neighbours'].split(',')
         country['Neighbours'] = []
-        if neighbours != []:
+        if neighbours != ['']: # check if neighbours is not an empty string array
             c2.execute("Select name from countryinfo where ISO2 in (%s)" % ','.join('?' for i in neighbours),neighbours)
             country['Neighbours'] = [row[0] for row in c2.fetchall()]
 
@@ -244,6 +281,12 @@ class CountryInfo:
 
     def languages(self):
         return self.country['Languages'] if self.country else None
+
+    def major_cities(self):
+        return self.country['MajorCities'] if self.country and 'MajorCities' in self.country else []
+
+    def flag(self):
+        return self.country['Flag'] if self.country and 'Flag' in self.country else ""
 
     def all(self):
         return json.load(open(COUNTRYINFOFILE))
