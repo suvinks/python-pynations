@@ -62,3 +62,71 @@ class TestCountryInfoFeatures:
         # Also check the type of these fields
         assert isinstance(country_data['MajorCities'], list)
         assert isinstance(country_data['Flag'], str)
+
+from unittest.mock import patch, MagicMock
+import pynations.CountryInfo # To reset module-level caches
+
+class TestCountryInfoCaching:
+    def setUp(self):
+        # Reset global caches in pynations.CountryInfo before each test
+        pynations.CountryInfo._cached_country_lookup = None
+        pynations.CountryInfo._cached_country_info = None
+
+        # Mock build_CountryInfo to prevent actual file I/O and building logic,
+        # simulating that files exist and build_CountryInfo returns quickly.
+        # This helps isolate testing of caching logic in __init__ and all().
+        self.patcher_build_info = patch('pynations.CountryInfo.build_CountryInfo', return_value=True)
+        self.mock_build_info = self.patcher_build_info.start()
+
+    def tearDown(self):
+        self.patcher_build_info.stop()
+
+    @patch('json.load')
+    def test_caching_for_country_info_instantiation(self, mock_json_load):
+        """Tests that JSON files are loaded only on first instantiation for different countries."""
+        # Arrange: setUp resets caches and mocks build_CountryInfo.
+        # We need to provide a plausible return value for json.load if it's called.
+        # For lookup, a dict; for country_info, a dict of dicts.
+        # Let's make it simple:
+        mock_json_load.side_effect = [
+            {'us': 123, 'ca': 456}, # Mocked content for countrylookup.json
+            {'123': {"Country": "USA"}, '456': {"Country": "Canada"}}  # Mocked content for countryinfo.json
+        ]
+
+        # Act 1: Instantiate for 'US'.
+        CountryInfo('US')
+        
+        # Assert 1: json.load called twice (once for lookup, once for info)
+        assert mock_json_load.call_count == 2, "json.load should be called for lookup and info files on first access."
+
+        # Act 2: Reset mock and instantiate for 'CA'.
+        mock_json_load.reset_mock()
+        # Re-apply side_effect if needed for subsequent distinct calls, but here we expect 0 calls.
+        
+        CountryInfo('CA') # Should use cached lookup and cached country_info
+
+        # Assert 2: json.load should NOT be called again.
+        assert mock_json_load.call_count == 0, "json.load should not be called for subsequent accesses if data is cached."
+
+    @patch('json.load')
+    def test_caching_for_all_method(self, mock_json_load):
+        """Tests that JSON file for all country data is loaded only on the first call to all()."""
+        # Arrange: setUp resets caches and mocks build_CountryInfo.
+        # Mock return value for countryinfo.json
+        mock_json_load.return_value = {"1": {"Country": "Country1"}, "2": {"Country": "Country2"}}
+
+        # Act 1: Call all() for the first time.
+        CountryInfo().all()
+
+        # Assert 1: json.load should be called once (for countryinfo.json).
+        # build_CountryInfo is mocked, so it won't load.
+        # __init__ of CountryInfo() (with no args) doesn't load country_info itself.
+        # So, the first all() call should load countryinfo.json.
+        assert mock_json_load.call_count == 1, "json.load should be called once for countryinfo.json on first all() call."
+
+        # Act 2: Reset mock and call all() again.
+        mock_json_load.reset_mock()
+        CountryInfo().all()
+
+        # Assert 2: json.load should NOT be called again.
+        assert mock_json_load.call_count == 0, "json.load should not be called on subsequent all() calls if data is cached."

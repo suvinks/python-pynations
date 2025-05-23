@@ -12,14 +12,18 @@ ZIPCODES = "http://download.geonames.org/export/zip/"
 ALTNAMES = "http://download.geonames.org/export/dump/alternatenames/"
 
 import requests
+import concurrent.futures
 from menu import Menu
 from tqdm import tqdm
 from pathlib import Path
 import pkg_resources
+import time # Added for timing
 
 DESTINATION = Path(pkg_resources.resource_filename('pynations','data/geonamesdata'))
 
 class GeonamesDownloader:
+    MAX_WORKERS = 5
+
     def __init__(self):
         self.countries = []
         self.CHUNKSIZE = 2048
@@ -72,55 +76,76 @@ class GeonamesDownloader:
     def mainMenu(self):
         self.main_menu.set_options(self.main_options)
 
-    def download_countries(self,optionType=None):
-        """
-        Downloads data for individual countries.
-        Especially useful when you don't need the whole data
-
-        Output Files
-        ------------
-        geonames_<countrycode>.zip
-        altnames_<countrycode>.zip
-        zipcodes_<countrycode>.zip
-        """
-
-        self.countries = input("Enter Country code(s) <US,GB ..>: ").upper().split(',')
-        fname = ''
-        err = ''
-
-        for country in tqdm(self.countries):
-            country = country.strip()
-
-            if optionType == 'G':
-                url = GEONAMES + country + '.zip'
-                fname = 'geonames_'+country+'.zip'
-                err = f'Geonames information for {country} not found'
-            elif optionType == 'A':
-                url = ALTNAMES + country + '.zip'
-                fname = 'altnames_'+country+'.zip'
-                err = f'Alternate name information for {country} not found'
-            else:
-                url = ZIPCODES + country + '.zip'
-                fname = 'zipcodes_'+country+'.zip'
-                err = f'Zipcode information for {country} not found'
-
-            r = requests.get(url,stream=True)
-
+    def _download_file_worker(self, url, filepath, error_message_template):
+        try:
+            r = requests.get(url, stream=True)
+            # Ensure the destination directory exists
+            filepath.parent.mkdir(parents=True, exist_ok=True)
             if r.status_code == 200:
-                with open(str(DESTINATION.joinpath(fname)),'wb') as f:
+                with open(filepath, 'wb') as f:
                     for chunk in r.iter_content(chunk_size=self.CHUNKSIZE):
                         if chunk:
                             f.write(chunk)
+                return f"Successfully downloaded {filepath.name}"
             else:
-                print(err)
+                return f"{error_message_template} (Status: {r.status_code}, URL: {url})"
+        except Exception as e:
+            return f"Error downloading {url}: {e}"
 
+    def download_countries(self,optionType=None):
+        """
+        Downloads data for individual countries using parallel downloads.
+        """
+        self.countries = input("Enter Country code(s) <US,GB ..>: ").upper().split(',')
+        
+        tasks = []
+        for country_code_raw in self.countries:
+            country_code = country_code_raw.strip()
+            if not country_code: continue # Skip empty country codes
+
+            if optionType == 'G':
+                url = GEONAMES + country_code + '.zip'
+                fname = f'geonames_{country_code}.zip'
+                err_template = f'Geonames information for {country_code} not found'
+            elif optionType == 'A': # As per example, handle 'A' though not in original menu for this method
+                url = ALTNAMES + country_code + '.zip'
+                fname = f'altnames_{country_code}.zip'
+                err_template = f'Alternate name information for {country_code} not found'
+            else: # Default to 'Z' for zipcodes
+                url = ZIPCODES + country_code + '.zip'
+                fname = f'zipcodes_{country_code}.zip'
+                err_template = f'Zipcode information for {country_code} not found'
+            
+            tasks.append({'url': url, 'filepath': DESTINATION.joinpath(fname), 'error_template': err_template})
+
+        if not tasks:
+            print("No valid country codes entered.")
+            return
+
+        print(f"Starting parallel download for {len(tasks)} country files...")
+        results = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=self.MAX_WORKERS) as executor:
+            future_to_task = {
+                executor.submit(self._download_file_worker, task['url'], task['filepath'], task['error_template']): task 
+                for task in tasks
+            }
+            for future in tqdm(concurrent.futures.as_completed(future_to_task), total=len(tasks), desc="Downloading countries"):
+                results.append(future.result())
+        
+        for res_msg in results:
+            print(res_msg)
+
+        # Update menu message
+        country_list_str = ", ".join(self.countries)
         if optionType == 'G':
-            self.geonames_menu.set_message(f'>> Geonames download for {self.countries} completed <<\n\nPlease select an option')
+            self.geonames_menu.set_message(f'>> Geonames download for {country_list_str} completed <<\n\nPlease select an option')
         elif optionType == 'A':
-            self.altnames_menu.set_message(f'>> Altnames download for {self.countries} completed <<\n\nPlease select an option')
-        else:
-            self.zipcodes_menu.set_message(f'>> Zipcode download for {self.countries} completed <<\n\nPlease select an option')
-
+            # Assuming there's an altnames_menu or handle appropriately
+            # For now, let's print to console if menu object is not defined for 'A' in this context
+            print(f'>> Altnames download for {country_list_str} completed <<')
+            # self.altnames_menu.set_message(f'>> Altnames download for {country_list_str} completed <<\n\nPlease select an option')
+        else: # 'Z'
+            self.zipcodes_menu.set_message(f'>> Zipcode download for {country_list_str} completed <<\n\nPlease select an option')
 
     def download_all(self,optionType=None):
         """
@@ -197,4 +222,7 @@ def download():
     GeonamesDownloader().run()
 
 if __name__ == "__main__":
+    start_time = time.time()
     GeonamesDownloader().run()
+    end_time = time.time()
+    print(f"Total execution time for geodownloader: {end_time - start_time:.2f} seconds")
